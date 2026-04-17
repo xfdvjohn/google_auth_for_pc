@@ -7,6 +7,7 @@ Secrets are stored on disk in an AES-GCM-encrypted vault that is unlocked with a
 ## Features
 
 - Add TOTP accounts by **manual entry** (issuer, account name, Base32 secret), by pasting an `otpauth://totp/...` URI, or by **scanning a QR code image** (load from file or paste from clipboard).
+- **Bulk import from Google Authenticator** — scan the `otpauth-migration://offline?data=...` QR shown by Google Authenticator's *Transfer accounts → Export accounts* flow; every TOTP entry in the payload is imported in one step.
 - Live 6- or 8-digit codes with a per-row 30-second countdown ring.
 - Encrypted local vault: AES-GCM with a key derived from your master password via PBKDF2-SHA256 (600 000 iterations).
 - Edit / delete accounts. Click a row and press **Copy code** (or double-click) to put the current code on the clipboard.
@@ -45,6 +46,10 @@ When a site shows you a QR code for 2-factor setup, most sites also offer a "Can
 3. The **QR code itself** — save the image (or screenshot it) and import via **Add → Scan QR code**.
 
 Paste either of the first two via **Add → Manual entry** or **Add → Paste otpauth URI**; the third via **Add → Scan QR code** (load an image file, or copy the QR to your clipboard and click *Paste image from clipboard*). Compare the first generated 6-digit code against the site's "enter code to confirm" field — if it matches, you're set up.
+
+### Importing everything from Google Authenticator
+
+In Google Authenticator: *Settings → Transfer accounts → Export accounts*, pick the accounts to transfer, and it will display a QR code (URI scheme `otpauth-migration://offline?data=...`) containing the whole batch. Screenshot it, then in this app use **Add → Scan QR code** → *Load image file…* (or paste the image from the clipboard). Every TOTP entry in the payload is imported at once; HOTP entries are ignored.
 
 ## Building a single-file `.exe` for Windows
 

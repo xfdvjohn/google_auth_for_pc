@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..qr import QRDecodeError, decode_qr_from_bytes, decode_qr_from_file
-from ..totp import normalize_secret, parse_otpauth_uri
+from ..totp import normalize_secret, parse_import_uri
 from ..vault import Account
 
 
@@ -98,7 +98,8 @@ class AccountDialog(QDialog):
         self.setWindowTitle("Edit account" if existing else "Add account")
         self.setModal(True)
         self.resize(420, 340)
-        self._result: Account | None = None
+        self._results: list[Account] = []
+        self._pending_accounts: list[Account] = []
 
         layout = QVBoxLayout(self)
         self.tabs = QTabWidget()
@@ -233,19 +234,31 @@ class AccountDialog(QDialog):
 
     def _apply_qr_payload(self, payload: str) -> None:
         try:
-            acc = parse_otpauth_uri(payload)
+            accs = parse_import_uri(payload)
         except ValueError as e:
-            self._set_qr_error(
-                f"QR code decoded but is not a valid otpauth URI: {e}"
-            )
+            self._set_qr_error(f"QR code decoded but is not a supported OTP URI: {e}")
             return
-        self._populate_manual_fields(acc)
-        self.qr_status.setStyleSheet("color: #2e7d32; padding-top: 8px;")
-        label = f"{acc.issuer}: {acc.name}" if acc.issuer else acc.name
-        self.qr_status.setText(
-            f"Imported {label!r}. Review the fields on 'Manual entry' and click OK."
+        if len(accs) == 1:
+            acc = accs[0]
+            self._populate_manual_fields(acc)
+            self._pending_accounts = []
+            label = f"{acc.issuer}: {acc.name}" if acc.issuer else acc.name
+            self.qr_status.setStyleSheet("color: #2e7d32; padding-top: 8px;")
+            self.qr_status.setText(
+                f"Imported {label!r}. Review the fields on 'Manual entry' and click OK."
+            )
+            self.tabs.setCurrentIndex(0)
+            return
+        self._pending_accounts = list(accs)
+        lines = "\n".join(
+            f"  • {a.issuer}: {a.name}" if a.issuer else f"  • {a.name}"
+            for a in accs
         )
-        self.tabs.setCurrentIndex(0)
+        self.qr_status.setStyleSheet("color: #2e7d32; padding-top: 8px;")
+        self.qr_status.setText(
+            f"Imported {len(accs)} accounts from the migration QR.\n"
+            f"Click OK to add all of them:\n{lines}"
+        )
 
     def _set_qr_error(self, message: str) -> None:
         self.qr_status.setStyleSheet("color: #c62828; padding-top: 8px;")
@@ -262,12 +275,19 @@ class AccountDialog(QDialog):
             self.algorithm.setCurrentIndex(idx)
 
     def _on_ok(self) -> None:
+        idx = self.tabs.currentIndex()
         try:
-            if self.tabs.currentIndex() == 1:
+            if idx == 2:
+                if not self._pending_accounts:
+                    raise ValueError(
+                        "Scan a QR code first, or review the imported entry on 'Manual entry'."
+                    )
+                self._results = list(self._pending_accounts)
+            elif idx == 1:
                 text = self.uri.toPlainText().strip()
                 if not text:
                     raise ValueError("Paste an otpauth:// URI first.")
-                acc = parse_otpauth_uri(text)
+                self._results = parse_import_uri(text)
             else:
                 acc = Account(
                     issuer=self.issuer.text().strip(),
@@ -279,11 +299,11 @@ class AccountDialog(QDialog):
                 )
                 if not acc.name and not acc.issuer:
                     raise ValueError("Provide at least an issuer or account name.")
+                self._results = [acc]
         except ValueError as e:
             QMessageBox.warning(self, "Invalid input", str(e))
             return
-        self._result = acc
         self.accept()
 
-    def result_account(self) -> Account | None:
-        return self._result
+    def result_accounts(self) -> list[Account]:
+        return list(self._results)

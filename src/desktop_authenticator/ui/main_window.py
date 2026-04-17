@@ -207,12 +207,16 @@ class MainWindow(QMainWindow):
     def _add_account(self) -> None:
         dlg = AccountDialog(self)
         if dlg.exec() == dlg.DialogCode.Accepted:
-            acc = dlg.result_account()
-            if acc is not None:
-                self.vault.data.accounts.append(acc)
-                self.vault.save()
-                self._reload_list()
-                self.status.setText(f"Added {acc.issuer or acc.name}.")
+            accs = dlg.result_accounts()
+            if not accs:
+                return
+            self.vault.data.accounts.extend(accs)
+            self.vault.save()
+            self._reload_list()
+            if len(accs) == 1:
+                self.status.setText(f"Added {accs[0].issuer or accs[0].name}.")
+            else:
+                self.status.setText(f"Added {len(accs)} accounts.")
 
     def _edit_account(self) -> None:
         idx = self._selected_index()
@@ -221,13 +225,14 @@ class MainWindow(QMainWindow):
         existing = self.vault.data.accounts[idx]
         dlg = AccountDialog(self, existing=existing)
         if dlg.exec() == dlg.DialogCode.Accepted:
-            acc = dlg.result_account()
-            if acc is not None:
-                self.vault.data.accounts[idx] = acc
-                self.vault.save()
-                self._reload_list()
-                self.list.setCurrentRow(idx)
-                self.status.setText("Account updated.")
+            accs = dlg.result_accounts()
+            if not accs:
+                return
+            self.vault.data.accounts[idx] = accs[0]
+            self.vault.save()
+            self._reload_list()
+            self.list.setCurrentRow(idx)
+            self.status.setText("Account updated.")
 
     def _delete_account(self) -> None:
         idx = self._selected_index()
