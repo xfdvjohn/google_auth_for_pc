@@ -6,7 +6,7 @@ Secrets are stored on disk in an AES-GCM-encrypted vault that is unlocked with a
 
 ## Features
 
-- Add TOTP accounts by **manual entry** (issuer, account name, Base32 secret) or by pasting an `otpauth://totp/...` URI.
+- Add TOTP accounts by **manual entry** (issuer, account name, Base32 secret), by pasting an `otpauth://totp/...` URI, or by **scanning a QR code image** (load from file or paste from clipboard).
 - Live 6- or 8-digit codes with a per-row 30-second countdown ring.
 - Encrypted local vault: AES-GCM with a key derived from your master password via PBKDF2-SHA256 (600 000 iterations).
 - Edit / delete accounts. Click a row and press **Copy code** (or double-click) to put the current code on the clipboard.
@@ -41,9 +41,10 @@ Back this file up if you want to keep your accounts — there is **no cloud sync
 When a site shows you a QR code for 2-factor setup, most sites also offer a "Can't scan the code?" link that reveals either:
 
 1. The **secret key** (a Base32 string like `JBSW Y3DP EHPK 3PXP`), or
-2. The full **otpauth URI** (`otpauth://totp/Google:you@example.com?secret=...&issuer=Google`).
+2. The full **otpauth URI** (`otpauth://totp/Google:you@example.com?secret=...&issuer=Google`), or
+3. The **QR code itself** — save the image (or screenshot it) and import via **Add → Scan QR code**.
 
-Paste either one via **Add → Manual entry** or **Add → Paste otpauth URI**. Compare the first generated 6-digit code against the site's "enter code to confirm" field — if it matches, you're set up.
+Paste either of the first two via **Add → Manual entry** or **Add → Paste otpauth URI**; the third via **Add → Scan QR code** (load an image file, or copy the QR to your clipboard and click *Paste image from clipboard*). Compare the first generated 6-digit code against the site's "enter code to confirm" field — if it matches, you're set up.
 
 ## Building a single-file `.exe` for Windows
 
@@ -66,8 +67,9 @@ src/desktop_authenticator/
     app.py              # entry point (desktop-authenticator script)
     vault.py            # AES-GCM encrypted vault
     totp.py             # TOTP code generation + otpauth URI parsing
+    qr.py               # QR code image decoding (OpenCV)
     ui/
-        dialogs.py      # unlock / add / edit dialogs
+        dialogs.py      # unlock / add / edit dialogs (incl. QR scan tab)
         main_window.py  # account list, live codes, countdown
 ```
 

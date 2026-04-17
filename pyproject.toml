@@ -5,6 +5,8 @@ description = "Desktop TOTP authenticator (Google Authenticator-compatible) for 
 requires-python = ">=3.12"
 dependencies = [
     "cryptography>=42.0",
+    "numpy>=1.26",
+    "opencv-python-headless>=4.9",
     "pyotp>=2.9",
     "pyside6>=6.6",
 ]

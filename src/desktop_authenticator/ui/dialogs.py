@@ -2,22 +2,27 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QBuffer, QByteArray, QIODevice, Qt
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPlainTextEdit,
+    QPushButton,
     QSpinBox,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
+from ..qr import QRDecodeError, decode_qr_from_bytes, decode_qr_from_file
 from ..totp import normalize_secret, parse_otpauth_uri
 from ..vault import Account
 
@@ -86,13 +91,13 @@ class UnlockDialog(QDialog):
 
 
 class AccountDialog(QDialog):
-    """Add or edit an account. Two tabs: manual entry, otpauth URI paste."""
+    """Add or edit an account. Three tabs: manual entry, otpauth URI paste, QR scan."""
 
     def __init__(self, parent=None, existing: Account | None = None):
         super().__init__(parent)
         self.setWindowTitle("Edit account" if existing else "Add account")
         self.setModal(True)
-        self.resize(420, 320)
+        self.resize(420, 340)
         self._result: Account | None = None
 
         layout = QVBoxLayout(self)
@@ -101,10 +106,12 @@ class AccountDialog(QDialog):
 
         self.tabs.addTab(self._build_manual_tab(existing), "Manual entry")
         self.tabs.addTab(self._build_uri_tab(), "Paste otpauth URI")
+        self.tabs.addTab(self._build_qr_tab(), "Scan QR code")
 
         if existing is not None:
-            # Editing: disable the URI tab to avoid confusion.
+            # Editing: disable the URI/QR tabs to avoid confusion.
             self.tabs.setTabEnabled(1, False)
+            self.tabs.setTabEnabled(2, False)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -161,6 +168,98 @@ class AccountDialog(QDialog):
         self.uri.setPlaceholderText("otpauth://totp/...")
         layout.addWidget(self.uri)
         return w
+
+    def _build_qr_tab(self) -> QWidget:
+        w = QWidget()
+        layout = QVBoxLayout(w)
+        layout.addWidget(
+            QLabel(
+                "Import an account by scanning a QR code image.\n"
+                "Load a saved screenshot, or paste an image copied to the clipboard."
+            )
+        )
+
+        btn_row = QHBoxLayout()
+        load_btn = QPushButton("Load image file...")
+        load_btn.clicked.connect(self._scan_qr_from_file)
+        paste_btn = QPushButton("Paste image from clipboard")
+        paste_btn.clicked.connect(self._scan_qr_from_clipboard)
+        btn_row.addWidget(load_btn)
+        btn_row.addWidget(paste_btn)
+        btn_row.addStretch(1)
+        layout.addLayout(btn_row)
+
+        self.qr_status = QLabel("No QR code scanned yet.")
+        self.qr_status.setWordWrap(True)
+        self.qr_status.setStyleSheet("color: #555; padding-top: 8px;")
+        layout.addWidget(self.qr_status)
+        layout.addStretch(1)
+        return w
+
+    def _scan_qr_from_file(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select QR code image",
+            "",
+            "Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp);;All files (*.*)",
+        )
+        if not path:
+            return
+        try:
+            uri = decode_qr_from_file(path)
+        except QRDecodeError as e:
+            self._set_qr_error(str(e))
+            return
+        self._apply_qr_payload(uri)
+
+    def _scan_qr_from_clipboard(self) -> None:
+        cb = QGuiApplication.clipboard()
+        qimg = cb.image()
+        if qimg.isNull():
+            self._set_qr_error(
+                "Clipboard has no image. Copy the QR code screenshot and try again."
+            )
+            return
+        ba = QByteArray()
+        buf = QBuffer(ba)
+        buf.open(QIODevice.OpenModeFlag.WriteOnly)
+        qimg.save(buf, "PNG")
+        try:
+            uri = decode_qr_from_bytes(bytes(ba))
+        except QRDecodeError as e:
+            self._set_qr_error(str(e))
+            return
+        self._apply_qr_payload(uri)
+
+    def _apply_qr_payload(self, payload: str) -> None:
+        try:
+            acc = parse_otpauth_uri(payload)
+        except ValueError as e:
+            self._set_qr_error(
+                f"QR code decoded but is not a valid otpauth URI: {e}"
+            )
+            return
+        self._populate_manual_fields(acc)
+        self.qr_status.setStyleSheet("color: #2e7d32; padding-top: 8px;")
+        label = f"{acc.issuer}: {acc.name}" if acc.issuer else acc.name
+        self.qr_status.setText(
+            f"Imported {label!r}. Review the fields on 'Manual entry' and click OK."
+        )
+        self.tabs.setCurrentIndex(0)
+
+    def _set_qr_error(self, message: str) -> None:
+        self.qr_status.setStyleSheet("color: #c62828; padding-top: 8px;")
+        self.qr_status.setText(message)
+
+    def _populate_manual_fields(self, acc: Account) -> None:
+        self.issuer.setText(acc.issuer)
+        self.name.setText(acc.name)
+        self.secret.setText(acc.secret)
+        self.digits.setValue(acc.digits)
+        self.period.setValue(acc.period)
+        idx = self.algorithm.findText(acc.algorithm)
+        if idx >= 0:
+            self.algorithm.setCurrentIndex(idx)
 
     def _on_ok(self) -> None:
         try:
