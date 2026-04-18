@@ -18,8 +18,10 @@ Build a standalone Windows `.exe` (must run on Windows — PyInstaller is OS-bou
 
 ```powershell
 uv run --with pyinstaller pyinstaller --noconfirm --windowed --onefile ^
-    --name DesktopAuthenticator src/desktop_authenticator/app.py
+    --name DesktopAuthenticator --paths src run_desktop_authenticator.py
 ```
+
+Do **not** point PyInstaller at `src/desktop_authenticator/app.py` directly — it would be executed as a top-level script with no parent package, and the package-internal relative imports (`from .ui.dialogs import ...`) would fail at startup with `ImportError: attempted relative import with no known parent package`. The `run_desktop_authenticator.py` shim exists so PyInstaller has a file to run as `__main__` while the real code is imported via its absolute package name.
 
 ## Architecture
 
