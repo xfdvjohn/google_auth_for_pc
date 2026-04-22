@@ -137,14 +137,14 @@ class MainWindow(QMainWindow):
 
         self.list = QListWidget()
         self.list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.list.itemDoubleClicked.connect(self._copy_current)
+        self.list.itemClicked.connect(self._copy_current)
         self.list.setStyleSheet(
             "QListWidget::item { border-bottom: 1px solid #eee; }"
             "QListWidget::item:selected { background: #e3f2fd; color: black; }"
         )
         v.addWidget(self.list)
 
-        self.status = QLabel("Double-click a row to copy the code.")
+        self.status = QLabel("Click a row to copy the code.")
         self.status.setStyleSheet("padding: 6px 10px; color: #555;")
         v.addWidget(self.status)
 

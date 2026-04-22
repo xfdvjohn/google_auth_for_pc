@@ -10,7 +10,7 @@ Secrets are stored on disk in an AES-GCM-encrypted vault that is unlocked with a
 - **Bulk import from Google Authenticator** — scan the `otpauth-migration://offline?data=...` QR shown by Google Authenticator's *Transfer accounts → Export accounts* flow; every TOTP entry in the payload is imported in one step.
 - Live 6- or 8-digit codes with a per-row 30-second countdown ring.
 - Encrypted local vault: AES-GCM with a key derived from your master password via PBKDF2-SHA256 (600 000 iterations).
-- Edit / delete accounts. Click a row and press **Copy code** (or double-click) to put the current code on the clipboard.
+- Edit / delete accounts. Click a row to copy the current code to the clipboard (or use the **Copy code** toolbar button).
 
 ## Requirements
 
